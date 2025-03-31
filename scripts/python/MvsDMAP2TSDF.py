@@ -1,12 +1,19 @@
+#!/usr/bin/python3
+# -*- encoding: utf-8 -*-
 """
 Reconstruct a mesh by integrating the given depth-maps into a TSDF volume.
 
-usage: MvsDMAP2TSDF.py [-h] [--input INPUT] [--output OUTPUT]
+Install:
+  pip install open3d numpy tqdm argparse
+
+Example usage:
+  python3 MvsDMAP2TSDF.py [-h] --input INPUT [--output OUTPUT] [--voxel_size VOXEL_SIZE] [--truncation_mult TRUNCATION_MULT]
 """
 
 from argparse import ArgumentParser
 from glob import glob
 from MvsUtils import loadDMAP
+from tqdm import tqdm
 import numpy as np
 import open3d as o3d
 import os
@@ -24,7 +31,7 @@ def estimate_gsd_from_depth_maps(dmap_paths):
     """
     # Parse list of depth maps
     mean_gsd = 0.0
-    for i, dmap_path in enumerate(dmap_paths):
+    for dmap_path in dmap_paths:
         # Read depth map
         dmap = loadDMAP(dmap_path)
 
@@ -32,7 +39,7 @@ def estimate_gsd_from_depth_maps(dmap_paths):
         mean_depth = np.mean(dmap["depth_map"])
 
         # Compute the GSD
-        gsd = mean_depth / dmap["K"][0, 0]
+        gsd = mean_depth / dmap["depth_K"][0, 0]
         mean_gsd += gsd
     return mean_gsd / len(dmap_paths)
 
@@ -57,9 +64,7 @@ def create_mesh_from_depth_maps(dmap_paths, voxel_length=0.01, truncation_mult=4
     )
 
     # Parse list of depth maps
-    for i, dmap_path in enumerate(dmap_paths):
-        print(f"Processing depth map {i+1}/{len(dmap_paths)}")
-
+    for dmap_path in tqdm(dmap_paths, desc="Integrating depth-maps"):
         # Read depth map
         dmap = loadDMAP(dmap_path)
 
@@ -75,14 +80,14 @@ def create_mesh_from_depth_maps(dmap_paths, voxel_length=0.01, truncation_mult=4
         )
 
         # Create camera intrinsic matrix
-        assert dmap["K"][0, 1] == 0.0 and dmap["K"][1, 0] == 0.0, "Non-zero skew not supported"
+        assert dmap["depth_K"][0, 1] == 0.0 and dmap["depth_K"][1, 0] == 0.0, "Non-zero skew not supported"
         intrinsic = o3d.camera.PinholeCameraIntrinsic(
             width=dmap["depth_width"],
             height=dmap["depth_height"],
-            fx=dmap["K"][0, 0],
-            fy=dmap["K"][1, 1],
-            cx=dmap["K"][0, 2],
-            cy=dmap["K"][1, 2],
+            fx=dmap["depth_K"][0, 0],
+            fy=dmap["depth_K"][1, 1],
+            cx=dmap["depth_K"][0, 2],
+            cy=dmap["depth_K"][1, 2],
         )
 
         # Get camera pose for this frame
@@ -114,35 +119,19 @@ def dmap2tsdf(input_dir, output_file, voxel_size=0.0, truncation_mult=4.0):
     print(f"Mesh saved to {output_file}")
 
 
-def main():
+if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument(
         "-i", "--input", type=str, required=True, help="Path to the DMAP file directory"
     )
     parser.add_argument(
-        "-o",
-        "--output",
-        type=str,
-        default="mesh.ply",
-        help="Path to the reconstructed mesh file",
+        "-o", "--output", type=str, default="mesh.ply", help="Path to the reconstructed mesh file",
     )
     parser.add_argument(
-        "-x",
-        "--voxel_size",
-        type=float,
-        default=0.0,
-        help="Voxel size for TSDF integration (0 for auto-estimation)",
+        "-x", "--voxel_size", type=float, default=0.0, help="Voxel size for TSDF integration (0 for auto-estimation)",
     )
     parser.add_argument(
-        "-t",
-        "--truncation_mult",
-        type=float,
-        default=4.0,
-        help="Truncation multiplier for TSDF integration",
+        "-t", "--truncation_mult", type=float, default=4.0, help="Truncation multiplier for TSDF integration",
     )
     args = parser.parse_args()
     dmap2tsdf(args.input, args.output, args.voxel_size, args.truncation_mult)
-
-
-if __name__ == "__main__":
-    main()

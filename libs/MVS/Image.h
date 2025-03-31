@@ -91,7 +91,7 @@ public:
 	Image GetImage(const PlatformArr& platforms, double scale, bool bUseImage=true) const;
 	Camera GetCamera(const PlatformArr& platforms, const Image8U::Size& resolution) const;
 	void UpdateCamera(const PlatformArr& platforms);
-	REAL ComputeFOV(int dir) const;
+	REAL ComputeFOV(int dir=0) const;
 
 	static bool StereoRectifyImages(const Image& image1, const Image& image2, const Point3fArr& points1, const Point3fArr& points2, Image8U3& rectifiedImage1, Image8U3& rectifiedImage2, Image8U& mask1, Image8U& mask2, Matrix3x3& H, Matrix4x4& Q);
 	static void ScaleStereoRectification(Matrix3x3& H, Matrix4x4& Q, REAL scale);

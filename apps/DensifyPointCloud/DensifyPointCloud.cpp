@@ -55,6 +55,7 @@ String strMeshFileName;
 String strExportROIFileName;
 String strImportROIFileName;
 String strCropROIFileName;
+String strExportDMAPSPathName;
 String strDenseConfigFileName;
 String strExportDepthMapsName;
 String strMaskPath;
@@ -182,6 +183,7 @@ bool Application::Initialize(size_t argc, LPCTSTR* argv)
 		("export-roi-file", boost::program_options::value<std::string>(&OPT::strExportROIFileName), "ROI file name to be exported form the scene")
 		("import-roi-file", boost::program_options::value<std::string>(&OPT::strImportROIFileName), "ROI file name to be imported into the scene")
 		("crop-roi-file", boost::program_options::value<std::string>(&OPT::strCropROIFileName), "ROI file name to crop the scene keeping only the points inside ROI and the cameras seeing them")
+		("export-dmaps", boost::program_options::value<std::string>(&OPT::strExportDMAPSPathName), "path name where DMAPs depth-maps will be exported as PNG depth-maps (empty - disabled)")
 		("dense-config-file", boost::program_options::value<std::string>(&OPT::strDenseConfigFileName), "optional configuration file for the densifier (overwritten by the command line options)")
 		("export-depth-maps-name", boost::program_options::value<std::string>(&OPT::strExportDepthMapsName), "render given mesh and save the depth-map for every image to this file name base (empty - disabled)")
 		;
@@ -310,6 +312,34 @@ int main(int argc, LPCTSTR* argv)
 	const Scene::SCENE_TYPE sceneType(scene.Load(MAKE_PATH_SAFE(OPT::strInputFileName)));
 	if (sceneType == Scene::SCENE_NA)
 		return EXIT_FAILURE;
+	if (!OPT::strExportDMAPSPathName.empty() && scene.IsValid()) {
+		// export depth-maps as PNG images
+		Util::ensureValidFolderPath(OPT::strExportDMAPSPathName);
+		Util::ensureFolder(OPT::strExportDMAPSPathName);
+		for (const Image& image: scene.images) {
+			// load known depth-map
+			String imageFileName;
+			IIndexArr IDs;
+			cv::Size imageSize;
+			Camera camera;
+			Depth dMin, dMax;
+			DepthMap depthMap;
+			NormalMap normalMap;
+			ConfidenceMap confMap;
+			ViewsMap viewsMap;
+			if (!ImportDepthDataRaw(ComposeDepthFilePath(image.ID, "dmap"),
+				imageFileName, IDs, imageSize, camera.K, camera.R, camera.C,
+				dMin, dMax, depthMap, normalMap, confMap, viewsMap, 1))
+				return EXIT_FAILURE;
+			// save depth-map as PNG
+			Image16U depthMap16U;
+			depthMap.convertTo(depthMap16U, CV_16U, 1000.f);
+			const String depthMapFileName(OPT::strExportDMAPSPathName + Util::getFileName(image.name)+_T(".png"));
+			if (!depthMap16U.Save(depthMapFileName))
+				return EXIT_FAILURE;
+		}
+		return EXIT_SUCCESS;
+	}
 	if (!OPT::strPointCloudFileName.empty() && !scene.pointcloud.Load(MAKE_PATH_SAFE(OPT::strPointCloudFileName))) {
 		VERBOSE("error: cannot load point-cloud file");
 		return EXIT_FAILURE;
