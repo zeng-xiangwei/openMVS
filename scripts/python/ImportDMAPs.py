@@ -12,8 +12,7 @@ Example usage:
 """
 
 from argparse import ArgumentParser
-from glob import glob
-from MvsUtils import loadMVSInterface, saveDMAP
+from MvsUtils import loadMVSInterface, scale_K, sample_depth_map, saveDMAP
 from tqdm import tqdm
 import numpy as np
 import os
@@ -79,40 +78,14 @@ def scale_depth_map(scene, image_idx, depth_map, verbose=False):
   """
   from sklearn.linear_model import RANSACRegressor
 
-  def sample_depth_map(depth_map, x):
-    """
-    Sample the depth map at the given coordinates using bilinear interpolation.
-    Args:
-      depth_map (numpy.ndarray): The depth map.
-      x (numpy.ndarray): The real number coordinates to sample from.
-    Returns:
-      float: The sampled depth value;
-        0.0 if the coordinates are out of bounds or if the sampled depth is zero.
-    """
-    x0 = int(x[0])
-    y0 = int(x[1])
-    x1 = x0 + 1
-    y1 = y0 + 1
-    if x0 < 0 or y0 < 0 or x1 >= depth_map.shape[1] or y1 >= depth_map.shape[0]:
-      return 0.0
-    dx = x[0] - x0
-    dy = x[1] - y0
-    depth = (
-      (depth_map[y0, x0] * (1 - dx) + depth_map[y0, x1] * dx) * (1 - dy) +
-      (depth_map[y1, x0] * (1 - dx) + depth_map[y1, x1] * dx) * dy
-    )
-    return depth
-
-
   # Collect 3D points and corresponding depth values
   image = scene["images"][image_idx]
+  image_width  = scene["platforms"][image["platform_id"]]["cameras"][image["camera_id"]]["width"]
+  image_height = scene["platforms"][image["platform_id"]]["cameras"][image["camera_id"]]["height"]
   K = np.array(scene["platforms"][image["platform_id"]]["cameras"][image["camera_id"]]["K"])
   R = np.array(scene["platforms"][image["platform_id"]]["poses"][image["pose_id"]]["R"])
   C = np.array(scene["platforms"][image["platform_id"]]["poses"][image["pose_id"]]["C"])
-  image_width  = scene["platforms"][image["platform_id"]]["cameras"][image["camera_id"]]["width"]
-  image_height = scene["platforms"][image["platform_id"]]["cameras"][image["camera_id"]]["height"]
-  width_ratio  = depth_map.shape[1] / image_width
-  height_ratio = depth_map.shape[0] / image_height
+  K = scale_K(K, depth_map.shape[1] / image_width, depth_map.shape[0] / image_height)
   depths_sfm = []
   depths_dmap = []
   mean_depth = 0
@@ -126,7 +99,7 @@ def scale_depth_map(scene, image_idx, depth_map, verbose=False):
         if depth_sfm <= 0:
           break
         x = K @ Xcam
-        x = np.array([width_ratio*x[0]/x[2], height_ratio*x[1]/x[2]])
+        x = np.array([x[0]/x[2], x[1]/x[2]])
         depth_dmap = sample_depth_map(depth_map, x)
         if depth_dmap <= 0:
           break

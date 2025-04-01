@@ -30,6 +30,31 @@ def scale_K(K, sx, sy):
   ], dtype=np.float64)
 
 
+def sample_depth_map(depth_map, x):
+  """
+  Sample the depth map at the given coordinates using bilinear interpolation.
+  Args:
+    depth_map (numpy.ndarray): The depth map.
+    x (numpy.ndarray): The real number coordinates to sample from.
+  Returns:
+    float: The sampled depth value;
+      0.0 if the coordinates are out of bounds or if the sampled depth is zero.
+  """
+  x0 = int(x[0])
+  y0 = int(x[1])
+  x1 = x0 + 1
+  y1 = y0 + 1
+  if x0 < 0 or y0 < 0 or x1 >= depth_map.shape[1] or y1 >= depth_map.shape[0]:
+    return 0.0
+  dx = x[0] - x0
+  dy = x[1] - y0
+  depth = (
+    (depth_map[y0, x0] * (1.0 - dx) + depth_map[y0, x1] * dx) * (1.0 - dy) +
+    (depth_map[y1, x0] * (1.0 - dx) + depth_map[y1, x1] * dx) * dy
+  )
+  return depth
+
+
 def loadDMAP(dmap_path: str):
   """
   Load and parse a DMAP (Depth Map) file.
