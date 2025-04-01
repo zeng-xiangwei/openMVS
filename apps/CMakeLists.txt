@@ -12,3 +12,6 @@ ADD_SUBDIRECTORY(Viewer)
 if(OpenMVS_ENABLE_TESTS)
     ADD_SUBDIRECTORY(Tests)
 endif()
+ADD_SUBDIRECTORY(InterfaceFastLivo)
+
+ADD_SUBDIRECTORY(InterfaceOpenMVG)

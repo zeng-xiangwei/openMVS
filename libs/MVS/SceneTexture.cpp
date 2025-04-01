@@ -1539,8 +1539,16 @@ void MeshTexture::GlobalSeamLeveling()
 		for (const FIndex idxFace: texturePatch.faces) {
 			const Face& face = faces[idxFace];
 			data.tri = faceTexcoords.Begin()+idxFace*3;
-			for (int v=0; v<3; ++v)
-				data.colors[v] = colorAdjustments.row(vertpatch2rows[face[v]].at(idxPatch));
+			for (int v=0; v<3; ++v) {
+				auto&& face_vidx = face[v];
+				auto&& list_idx = vertpatch2rows[face_vidx];
+				if (list_idx.count(idxPatch) == 0) {
+					std::cout << "not found patch " << idxPatch << std::endl;
+					continue;
+				}
+				auto&& idx = list_idx.at(idxPatch);
+				data.colors[v] = colorAdjustments.row(idx);
+			}
 			// render triangle and for each pixel interpolate the color adjustment
 			// from the triangle corners using barycentric coordinates
 			ColorMap::RasterizeTriangleBary(data.tri[0], data.tri[1], data.tri[2], data);

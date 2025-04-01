@@ -37,3 +37,7 @@ CMakeSettings.json
 out/
 bin*/
 make*/
+openMVS_build/*
+openMVS_install/*
+openmvs_build/*
+openmvs_install/*
